@@ -1,4 +1,4 @@
-#include "rule.hpp"
+#include "lingo.hpp"
 
 // goal: 
 // expression = ["+"|"-"] term {("+"|"-") term} .
