@@ -11,12 +11,12 @@ int main() {
     lingo::rule underscore('_');
     lingo::rule letter = lingo::rule('a','z') | lingo::rule('A','Z');
     lingo::rule alphanum = letter | digit | underscore;
-    lingo::rule identifier = underscore + alphanum;
     lingo::rule input("input");
     lingo::rule ws({' ', '\n', '\t', '\r'});
     lingo::rule not_letter=!letter;
+    lingo::rule identifier = (underscore | letter) + lingo::repeat(alphanum) + lingo::placeholder();
 
-    not_letter.print();
+    identifier.print();
 
     return 0;
 }
