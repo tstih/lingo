@@ -14,9 +14,14 @@ int main() {
     lingo::rule input("input");
     lingo::rule ws({' ', '\n', '\t', '\r'});
     lingo::rule not_letter=!letter;
-    lingo::rule identifier = (underscore | letter) + lingo::repeat(alphanum) + lingo::placeholder();
+    lingo::rule identifier = (underscore | letter) + lingo::repeat(alphanum);
 
-    identifier.print();
+    lingo::source test1("!@joo");
+
+    if (identifier.parse(test1))
+        std::cout << "Success!" << std::endl;
+    else
+        std::cout << "Fail!" << std::endl;
 
     return 0;
 }
