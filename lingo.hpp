@@ -3,7 +3,10 @@
 
 #include <vector>
 #include <memory>
-#include <iostream>
+#include <sstream>
+#include <algorithm>
+#include <atomic>
+#include <stack>
 
 namespace lingo {
 
@@ -16,51 +19,90 @@ namespace lingo {
         void bookmark(int p) { pos_=p;}
         char peek() { return code_[pos_]; };
         char consume() {return code_[pos_++];}
+        int row() { return row_;}
+        int col() { return col_;}
     private:
         std::string code_;
-        int pos_;
+        int pos_, row_, col_;
     };
 
 
     // ----- forward defintions  ----------------------------------------------
     class rule;
+    class node;
+    class literal;
+    class and_node;
+    class or_node;
+    class not_node;
+    class repeat_node;
 
 
     // ----- nodes ------------------------------------------------------------
+    class node_visitor {
+    public:
+        virtual void visit_literal(literal &element) {}
+        virtual void visit_and_node(and_node &element) {}
+        virtual void visit_or_node(or_node &element) {}
+        virtual void visit_not_node(not_node &element) {}
+        virtual void visit_repeat_node(repeat_node &element) {}
+    };
+
     class node {
     public:
-        virtual void print(int indent=0)=0;
+        node() { id_ = ++next_id_; name_=internal_name(); }
+        node(std::string name) : name_(name) { id_ = ++next_id_;}
         virtual bool parse(source& src)=0;
+        virtual void accept(node_visitor &visitor) {} // Default implementation.
+        int id() const { return id_; };
+        virtual std::string name() { return name_; }
+        void name(std::string name) { name_=name; }
+    protected:
+        // Node name. Optional. Can be empty.
+        std::string name_;
+        // Internal node identifier. This is also used for name, when no name is provided.
+        int id_;
+        static std::atomic<int> next_id_;
+        std::string internal_name() { std::stringstream ss; ss<<id(); return ss.str();}
     };
+    // Static definition.
+    std::atomic<int> node::next_id_ = std::atomic<int>(0);
 
     class unary_node : public node { // Just 1 child.
     public:
-        virtual void print(int indent)=0;
+        unary_node() : node() {}
+        unary_node(std::string name) : node(name) {}
         virtual bool parse(source& src)=0;
+        std::shared_ptr<node> sibling() { return sibling_; }
+        void sibling(std::shared_ptr<node> sibling) { sibling_=sibling; }
     protected:
-        friend class rule;
         std::shared_ptr<node> sibling_;
     };
 
     class multary_node : public node { // N children.
     public:
-        virtual void print(int indent)=0;
+        multary_node() : node() {}
+        multary_node(std::string name) : node(name) {}
         virtual bool parse(source& src)=0;
+        std::vector<std::shared_ptr<node>>& children() { return children_; }
     protected:
-        friend class rule;
         std::vector<std::shared_ptr<node>> children_;
     };
 
     class literal : public node { // Special node, without children.
     public:
-        literal(char c) : from_(c), to_(c) {}
-        literal(char from, char to) : from_(from), to_(to) {}
-        void print(int indent) override { 
-            std::cout << std::string(indent, ' ') << "literal (" << from_ << "," << to_ << ")" <<  std::endl; }
+        literal(char c) : node(), from_(c), to_(c) {}
+        literal(std::string name, char c) : node(name), from_(c), to_(c) {}
+        literal(char from, char to) : node(), from_(from), to_(to) {}
+        literal(std::string name, char from, char to) : node(name), from_(from), to_(to) {}
         virtual bool parse(source& src) {
             char symbol=src.consume();
             return (symbol>=from_ && symbol<=to_);   
         }
+        void accept(node_visitor &visitor) override {
+            visitor.visit_literal(*this);
+        } 
+        char from() { return from_; }
+        char to() { return to_; }
     private:
         char from_;
         char to_;
@@ -68,7 +110,8 @@ namespace lingo {
 
     class or_node : public multary_node {
     public:
-        void print(int indent) override { std::cout << std::string(indent, ' ') << "or" << std::endl; for(auto n:children_) n->print(indent + 1); }
+        or_node() : multary_node() {}
+        or_node(std::string name) : multary_node(name) {}
         virtual bool parse(source& src) {
             auto bm=src.bookmark(); // Remember pos.
             for(auto n:children_) {
@@ -78,12 +121,17 @@ namespace lingo {
                 else 
                     return true; // Just need one for or.
             }
+            return false;
         }
+        void accept(node_visitor &visitor) override {
+            visitor.visit_or_node(*this);
+        } 
     };
 
-    class next_node : public multary_node {
+    class and_node : public multary_node {
     public:
-        void print(int indent) override { std::cout << std::string(indent, ' ') << "next" << std::endl; for(auto n:children_) n->print(indent + 1); }
+        and_node() : multary_node() {}
+        and_node(std::string name) : multary_node(name) {}
         virtual bool parse(source& src) {
             auto bm=src.bookmark(); // Remember pos.
             for(auto n:children_) {
@@ -93,27 +141,39 @@ namespace lingo {
             }
             return true; // We did it!
         }
+        void accept(node_visitor &visitor) override {
+            visitor.visit_and_node(*this);
+        } 
     };
 
     class not_node : public unary_node {
     public:
-        void print(int indent) override { std::cout << std::string(indent, ' ') << "not" << std::endl; sibling_->print(indent + 1); }    
+        not_node() : unary_node() {}
+        not_node(std::string name) : unary_node(name) {}
         virtual bool parse(source& src) {
             auto bm=src.bookmark(); // Remember pos.
             bool result = sibling_->parse(src);
             return !result;
         }
+        void accept(node_visitor &visitor) override {
+            visitor.visit_not_node(*this);
+        } 
     };
 
     class repeat_node : public unary_node {
     public:
-        repeat_node(int min=1, int max=0) : min_(min), max_(max) {}
-        void print(int indent) override { std::cout << std::string(indent, ' ') << "repeat (" << min_ << "," << max_ << ")" << std::endl; sibling_->print(indent + 1); } 
+        repeat_node(int min=1, int max=0) : unary_node(), min_(min), max_(max) {}
+        repeat_node(std::string name, int min=1, int max=0) : unary_node(name), min_(min), max_(max) {}
         virtual bool parse(source& src) {
             int n=0;
             while (sibling_->parse(src) && (max_==0 || n<=max_)) n++;
             return (n>=min_ && (max_==0 || n<=max_));
         }
+        void accept(node_visitor &visitor) override {
+            visitor.visit_repeat_node(*this);
+        } 
+        int min() const { return min_; }
+        int max() const { return max_; }
     private:
         friend rule repeat(const rule& r, int min , int max);
         int min_;
@@ -122,13 +182,8 @@ namespace lingo {
 
     class placeholder_node : public unary_node {
     public:
-        void print(int indent) override { 
-            std::cout << std::string(indent, ' ') << "placeholder" << std::endl; 
-            if (sibling_==nullptr)
-                std::cout << std::string(indent + 1, ' ') << "(empty)" << std::endl; 
-            else 
-                sibling_->print(indent + 1);
-        } 
+        placeholder_node() : unary_node() {}
+        placeholder_node(std::string name) : unary_node(name) {}
         virtual bool parse(source& src) {
             return true;
         }
@@ -138,32 +193,62 @@ namespace lingo {
     };
 
 
+    // ----- ast_node ---------------------------------------------------------
+    class ast_node { // The node.
+    public:
+        
+    };
+
+
+    class ast { // The tree.
+
+    };
+
     // ----- rule -------------------------------------------------------------
     class rule {
     public:
+        rule(const rule & r) { node_=r.node_; }
+        rule(std::string name, const rule & r) { node_=r.node_; node_->name(name);}
         rule(char from, char to) {node_ = std::make_shared<literal>(from,to);}
+        rule(std::string name, char from, char to) {node_ = std::make_shared<literal>(name,from,to);}
         rule(char c) {node_ = std::make_shared<literal>(c);}
+        rule(std::string name, char c) {node_ = std::make_shared<literal>(name,c);}
         rule(std::initializer_list<char> l) { 
             auto node=std::make_shared<or_node>();
             for (char c : l) 
-                node->children_.push_back(std::make_shared<literal>(c));
+                node->children().push_back(std::make_shared<literal>(c));
+            node_=node; 
+        }
+        rule(std::string name, std::initializer_list<char> l) { 
+            auto node=std::make_shared<or_node>(name);
+            for (char c : l) 
+                node->children().push_back(std::make_shared<literal>(c));
             node_=node; 
         }
         rule(std::string s) {
-            auto node=std::make_shared<next_node>();
+            auto node=std::make_shared<and_node>();
             for (char c : s)
-                node->children_.push_back(std::make_shared<literal>(c));
+                node->children().push_back(std::make_shared<literal>(c));
+            node_=node;
+        }
+        rule(std::string name, std::string s) {
+            auto node=std::make_shared<and_node>(name);
+            for (char c : s)
+                node->children().push_back(std::make_shared<literal>(c));
             node_=node;
         }
 
         virtual ~rule()=default;
 
+        // Or, and, not rules.
         rule operator| (const rule& r);
         rule operator+ (const rule& r);
         rule operator! ();
 
-        void print() { node_->print(); }
-        bool parse(source& src) { return node_->parse(src); }
+        // Node visitor.
+        void accept(node_visitor & v) { node_->accept(v); }
+
+        bool validate(source& src) { return node_->parse(src); }
 
     protected:
         template <class T> rule multary(const rule &r);
@@ -183,7 +268,7 @@ namespace lingo {
     }
 
     rule rule::operator+ (const rule& r) { 
-        return multary<next_node>(r);
+        return multary<and_node>(r);
     }
 
     rule rule::operator! () { 
@@ -194,7 +279,7 @@ namespace lingo {
     rule rule::unary() {
         // Create unary node.
         std::shared_ptr<unary_node> node = std::make_shared<T>();
-        node->sibling_ = node_;
+        node->sibling(node_);
 
         // And a temp. parent rule.
         rule pnt;
@@ -215,14 +300,14 @@ namespace lingo {
                 std::dynamic_pointer_cast<multary_node>(node_);
             // Copy existing items to new node.
             std::copy(
-                this_node->children_.begin(), 
-                this_node->children_.end(), 
-                back_inserter(node->children_));
+                this_node->children().begin(), 
+                this_node->children().end(), 
+                back_inserter(node->children()));
         } else 
-            node->children_.push_back(node_);
+            node->children().push_back(node_);
 
         // Add rule tree.
-        node->children_.push_back(r.node_);
+        node->children().push_back(r.node_);
 
         // And return new rule.
         rule pnt;
@@ -252,6 +337,103 @@ namespace lingo {
         pnt.node_=node;
         return pnt;
     }
+
+
+    // ----- visitors ---------------------------------------------------------
+#ifdef DIAGNOSTICS
+    class graphviz_export_node_visitor : public node_visitor {
+    public:
+        graphviz_export_node_visitor() : count_(0){ }
+        void visit_literal(literal &n) {
+            std::string me=name(n);
+            o_ << me << std::endl;
+            if (!parents_.empty()) o_ << parents_.top() << "->" << me << std::endl;
+        }
+        void visit_and_node(and_node &n) {
+            visit_multary(n);
+        }
+        void visit_or_node(or_node &n) {
+            visit_multary(n);
+        }
+        void visit_not_node(not_node &n) {
+            visit_unary(n);
+        }
+        void visit_repeat_node(repeat_node &n) {
+            visit_unary(n);
+        }
+        std::string str() {
+            std::stringstream result; 
+            result << "digraph G {" << std::endl;
+            result << "node [fontname=\"Arial\", shape=plaintext];" << std::endl;
+            result << o_.str();
+            result << "}" << std::endl;
+            return result.str();
+        }
+    private:
+
+        std::string name(literal &n) {
+            std::stringstream ss;
+            ss << "\"{" << n.from() << "," << n.to() << "}\"";
+            return ss.str();
+        }
+
+        std::string name(and_node &n) { return "<and>"; }
+        std::string name(or_node &n) { return "<or>"; }
+        std::string name(not_node &n) { return "<not>"; }
+
+        std::string name(repeat_node &n) {
+            std::stringstream ss;
+            ss << "\"" << "repeat (" << n.min() << "," << n.max() << ")" << "\"";
+            return ss.str();
+        }
+
+        template<class T>
+        void visit_multary(T &n) {
+            // Conjure element name and push onto parents stack.
+            std::string me=name(n);
+            o_ << me << std::endl;
+            if (!parents_.empty()) o_ << parents_.top() << "->" << me << std::endl;
+
+            // Iterate children.
+            if(!visited(&n)) { // Never visited before?
+                parents_.push(me); // Parent to stack.
+                for(auto c:n.children()) c->accept(*this);
+                audit(&n); // Audit our visit.
+                parents_.pop();
+            }
+        }
+
+        template<class T>
+        void visit_unary(T &n) {
+            // Conjure element name and push onto parents stack.
+            std::string me=name(n);
+            o_ << me << std::endl;
+            if (!parents_.empty()) o_ << parents_.top() << "->" << me << std::endl;
+
+            // Iterate children.
+            if(!visited(&n)) { // Never visited before?
+                parents_.push(me); // Parent to stack.
+                n.sibling()->accept(*this);
+                audit(&n); // Audit our visit.
+                parents_.pop();
+            }
+        }
+
+        // Output.
+        std::stringstream o_;
+        // Parent stack.
+        std::stack<std::string> parents_;
+        // Prevent cycles.
+        void audit(node *n) {
+            visited_.push_back(n);
+        }
+        bool visited(node *n) {
+            return (std::find(visited_.begin(), visited_.end(), n) != visited_.end());
+        }
+        std::vector<node *> visited_;
+        int count_;
+    };
+#endif // DIAGNOSTICS
 
 } // namespace lingo
 

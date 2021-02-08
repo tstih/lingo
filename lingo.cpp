@@ -1,3 +1,6 @@
+#include <iostream>
+
+#define DIAGNOSTICS
 #include "lingo.hpp"
 
 // goal: 
@@ -14,14 +17,19 @@ int main() {
     lingo::rule input("input");
     lingo::rule ws({' ', '\n', '\t', '\r'});
     lingo::rule not_letter=!letter;
-    lingo::rule identifier = (underscore | letter) + lingo::repeat(alphanum);
+    lingo::rule identifier ("<identifier>", (underscore | letter) + lingo::repeat(alphanum) ); 
 
+    /*
     lingo::source test1("!@joo");
-
     if (identifier.parse(test1))
         std::cout << "Success!" << std::endl;
     else
         std::cout << "Fail!" << std::endl;
+    */
+
+    lingo::graphviz_export_node_visitor v;
+    identifier.accept(v);
+    std::cout << v.str();
 
     return 0;
 }

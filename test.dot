@@ -1,0 +1,27 @@
+
+digraph G {
+node [fontname="Arial", shape=plaintext];
+<and>
+<or>
+<and>-><or>
+"{_,_}"
+<or>->"{_,_}"
+<or>
+<or>-><or>
+"{a,z}"
+<or>->"{a,z}"
+"{A,Z}"
+<or>->"{A,Z}"
+"repeat (1,0)"
+<and>->"repeat (1,0)"
+<or>
+"repeat (1,0)"-><or>
+"{a,z}"
+<or>->"{a,z}"
+"{A,Z}"
+<or>->"{A,Z}"
+"{0,9}"
+<or>->"{0,9}"
+"{_,_}"
+<or>->"{_,_}"
+}
