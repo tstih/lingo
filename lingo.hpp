@@ -346,8 +346,8 @@ namespace lingo {
         graphviz_export_node_visitor() : count_(0){ }
         void visit_literal(literal &n) {
             std::string me=name(n);
-            o_ << me << std::endl;
-            if (!parents_.empty()) o_ << parents_.top() << "->" << me << std::endl;
+            o_ << n.id() << " [label=" << me << "]" << std::endl;
+            if (!parents_.empty()) o_ << parents_.top() << "->" << n.id() << std::endl;
         }
         void visit_and_node(and_node &n) {
             visit_multary(n);
@@ -365,6 +365,7 @@ namespace lingo {
             std::stringstream result; 
             result << "digraph G {" << std::endl;
             result << "node [fontname=\"Arial\", shape=plaintext];" << std::endl;
+            result << "ordering=out" << std::endl;
             result << o_.str();
             result << "}" << std::endl;
             return result.str();
@@ -373,7 +374,10 @@ namespace lingo {
 
         std::string name(literal &n) {
             std::stringstream ss;
-            ss << "\"{" << n.from() << "," << n.to() << "}\"";
+            if (n.from()!=n.to())
+                ss << "\"{" << n.from() << "-" << n.to() << "}\"";
+            else
+                ss << "\"{" << n.from() << "}\"";
             return ss.str();
         }
 
@@ -383,7 +387,11 @@ namespace lingo {
 
         std::string name(repeat_node &n) {
             std::stringstream ss;
-            ss << "\"" << "repeat (" << n.min() << "," << n.max() << ")" << "\"";
+            ss << "\"" << "repeat (";
+            if (n.min()==0) ss<<"nil"; else ss<<n.min();
+            ss<<",";
+            if (n.max()==0) ss<<"infinite"; else ss<<n.max();
+            ss<< ")" << "\"";
             return ss.str();
         }
 
@@ -391,12 +399,13 @@ namespace lingo {
         void visit_multary(T &n) {
             // Conjure element name and push onto parents stack.
             std::string me=name(n);
-            o_ << me << std::endl;
-            if (!parents_.empty()) o_ << parents_.top() << "->" << me << std::endl;
+            o_ << n.id() << " [label=" << me << "]"<< std::endl;
+            if (!parents_.empty()) o_ << parents_.top() << "->" << n.id() << std::endl;
 
             // Iterate children.
-            if(!visited(&n)) { // Never visited before?
-                parents_.push(me); // Parent to stack.
+            if(!visited(&n)) { // Never visited before?ls
+
+                parents_.push(n.id()); // Parent to stack.
                 for(auto c:n.children()) c->accept(*this);
                 audit(&n); // Audit our visit.
                 parents_.pop();
@@ -407,12 +416,12 @@ namespace lingo {
         void visit_unary(T &n) {
             // Conjure element name and push onto parents stack.
             std::string me=name(n);
-            o_ << me << std::endl;
-            if (!parents_.empty()) o_ << parents_.top() << "->" << me << std::endl;
+            o_ << n.id() << " [label=" << me << "]"<< std::endl;
+            if (!parents_.empty()) o_ << parents_.top() << "->" << n.id() << std::endl;
 
             // Iterate children.
             if(!visited(&n)) { // Never visited before?
-                parents_.push(me); // Parent to stack.
+                parents_.push(n.id()); // Parent to stack.
                 n.sibling()->accept(*this);
                 audit(&n); // Audit our visit.
                 parents_.pop();
@@ -422,7 +431,7 @@ namespace lingo {
         // Output.
         std::stringstream o_;
         // Parent stack.
-        std::stack<std::string> parents_;
+        std::stack<int> parents_;
         // Prevent cycles.
         void audit(node *n) {
             visited_.push_back(n);

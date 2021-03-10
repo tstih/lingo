@@ -1,34 +1,30 @@
 #include <iostream>
 
-#define DIAGNOSTICS
+#define DIAGNOSTICS // We need this for graphviz support.
 #include "lingo.hpp"
-
-// goal: 
-// expression = ["+"|"-"] term {("+"|"-") term} .
-// term = factor {("*"|"/") factor} .
-// factor = number | "(" expression ")" .
 
 int main() {
 
+    /*
     lingo::rule digit('0','9');
+    lingo::rule integer = lingo::repeat(digit,1,5);
     lingo::rule underscore('_');
     lingo::rule letter = lingo::rule('a','z') | lingo::rule('A','Z');
     lingo::rule alphanum = letter | digit | underscore;
     lingo::rule input("input");
     lingo::rule ws({' ', '\n', '\t', '\r'});
     lingo::rule not_letter=!letter;
-    lingo::rule identifier ("<identifier>", (underscore | letter) + lingo::repeat(alphanum) ); 
-
-    /*
-    lingo::source test1("!@joo");
-    if (identifier.parse(test1))
-        std::cout << "Success!" << std::endl;
-    else
-        std::cout << "Fail!" << std::endl;
+    lingo::rule identifier ("<identifier>", (underscore | letter) + lingo::repeat(alphanum, 1, 31) ); 
     */
 
+    lingo::rule comma(',');
+    lingo::rule digit('0','9'); 
+    lingo::rule number = digit + lingo::repeat(digit,0); // Min. repetitions is 0.
+    lingo::rule number_list = number + lingo::repeat(comma + number, 0);
+
+    // Generate graphviz graph.
     lingo::graphviz_export_node_visitor v;
-    identifier.accept(v);
+    number_list.accept(v);
     std::cout << v.str();
 
     return 0;

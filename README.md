@@ -4,7 +4,7 @@ Lingo is a C++20 framework for creating recursive descent parsers. Followign the
 *simplicity before performance* philosophy, Lingo should be used for parsing 
 small to medium sized files. 
 
- > Lingo is currently under development. Please come back later.
+ > Lingo is currently under development. Expect strange things.
 
 ## Introduction
 
@@ -14,6 +14,9 @@ file. To use it, simply include `lingo.hpp`.
 
 ### Defining a grammar
 
+Let us first define a simple grammar to parse comma delimited non-floating 
+point numbers.
+
 ~~~
 <comma> = ","
 <digit> = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
@@ -21,13 +24,21 @@ file. To use it, simply include `lingo.hpp`.
 <list> = <number> [(<comma><digit>)+]
 ~~~
 
-becomes
+In lingo, you can write this grammar as 
 
 ~~~cpp
 lingo::rule comma(',');
 lingo::rule digit({'0','1','2','3','4','5','6','7','8','9'}); 
 lingo::rule number = digit + lingo::repeat(digit,0); // Min. repetitions is 0.
 lingo::rule digit_list = digit + lingo::repeat(comma + digit, 0);
+~~~
+
+### Recursive grammar
+
+~~~ 
+<expression> = ["+"|"-"] <term> {("+"|"-") <term>} .
+<term> = <factor> {("*"|"/") <factor>} .
+<factor> = <number> | "(" <expression> ")" 
 ~~~
 
 ### Parsing a file
