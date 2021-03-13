@@ -11,16 +11,53 @@
 namespace lingo {
 
 
+    // ----- parse exception --------------------------------------------------
+    class parse_exception : public std::exception {
+    public:
+        enum class exception_type { unexpected };
+        parse_exception(
+            std::string source_name,
+            std::string rule_name,
+            int row,
+            int col) :
+                source_name_(source_name), 
+                rule_name_(rule_name), 
+                row_(row), 
+                col_(col)
+            {};
+        // TODO: Expose members.
+    protected:
+        std::string source_name_;
+        std::string rule_name_;
+        int row_;
+        int col_;
+    };
+
+
     // ----- source (code) reader  --------------------------------------------
     class source {
     public:
-        source(std::string code) : code_(code), pos_(0) {}
-        int bookmark() { return pos_; }
-        void bookmark(int p) { pos_=p;}
-        char peek() { return code_[pos_]; };
-        char consume() {return code_[pos_++];}
-        int row() { return row_;}
-        int col() { return col_;}
+        virtual std::string name() const = 0; // Return current source name.
+        virtual int row() const = 0; // Return current row.
+        virtual int col() const = 0; // Return current column.
+
+        virtual char peek() const = 0; // Peek at next char.
+        virtual char consume() = 0; // Consume next char (mark as read!)
+
+        virtual int bookmark() = 0; // Remember current position (and return it). 
+        virtual void bookmark(int bookmark) = 0; // Go to bookmark!
+    };
+
+    class string_source : public source {
+    public:
+        string_source(std::string code) : code_(code), pos_(0) {}
+        std::string name() const override { return std::string(); }
+        int row() const override { return row_; }
+        int col() const override { return col_;}
+        char peek() const override { return code_[pos_]; };
+        char consume() override {return code_[pos_++];}
+        int bookmark() override { return pos_; }
+        void bookmark(int p) override { pos_=p;}
     private:
         std::string code_;
         int pos_, row_, col_;
@@ -35,6 +72,7 @@ namespace lingo {
     class or_node;
     class not_node;
     class repeat_node;
+    class placeholder_node;
 
 
     // ----- nodes ------------------------------------------------------------
@@ -45,6 +83,7 @@ namespace lingo {
         virtual void visit_or_node(or_node &element) {}
         virtual void visit_not_node(not_node &element) {}
         virtual void visit_repeat_node(repeat_node &element) {}
+        virtual void visit_placeholder_node(placeholder_node &element) {}
     };
 
     class node {
@@ -65,7 +104,7 @@ namespace lingo {
         std::string internal_name() { std::stringstream ss; ss<<id(); return ss.str();}
     };
     // Static definition.
-    std::atomic<int> node::next_id_ = std::atomic<int>(0);
+    std::atomic<int> node::next_id_ = {0};
 
     class unary_node : public node { // Just 1 child.
     public:
@@ -184,6 +223,9 @@ namespace lingo {
     public:
         placeholder_node() : unary_node() {}
         placeholder_node(std::string name) : unary_node(name) {}
+        void accept(node_visitor &visitor) override {
+            visitor.visit_placeholder_node(*this);
+        } 
         virtual bool parse(source& src) {
             return true;
         }
@@ -255,12 +297,27 @@ namespace lingo {
         template <class T> rule unary();
 
     private:
-        rule() {} // Empty rule ctor.
         friend rule repeat(const rule& r, int min , int max);
-        friend rule placeholder();
+        friend class placeholder;
+        rule() {} // Empty rule ctor.
         std::shared_ptr<node> node_;
     };
 
+
+    class placeholder : public rule {
+    public:
+        placeholder() : rule() {
+            node_=std::make_shared<placeholder_node>();
+        }
+
+        void set(const rule& r) {
+
+            std::shared_ptr<placeholder_node> this_node=
+                std::dynamic_pointer_cast<placeholder_node>(node_);
+
+            this_node->set(r.node_);
+        }
+    };
 
     // ----- rule implementation ----------------------------------------------
     rule rule::operator| (const rule& r) { 
@@ -328,16 +385,6 @@ namespace lingo {
         return pnt;
     }
 
-    rule placeholder() {
-        // Create unary node without sibling.
-        auto node = std::make_shared<placeholder_node>();
-        node->sibling_=nullptr;
-        // And a temp. parent rule.
-        rule pnt;
-        pnt.node_=node;
-        return pnt;
-    }
-
 
     // ----- visitors ---------------------------------------------------------
 #ifdef DIAGNOSTICS
@@ -359,6 +406,9 @@ namespace lingo {
             visit_unary(n);
         }
         void visit_repeat_node(repeat_node &n) {
+            visit_unary(n);
+        }
+        void visit_placeholder_node(placeholder_node &n) {
             visit_unary(n);
         }
         std::string str() {
@@ -384,6 +434,7 @@ namespace lingo {
         std::string name(and_node &n) { return "<and>"; }
         std::string name(or_node &n) { return "<or>"; }
         std::string name(not_node &n) { return "<not>"; }
+        std::string name(placeholder_node &n) { return "<placeholder>"; }
 
         std::string name(repeat_node &n) {
             std::stringstream ss;
@@ -403,11 +454,10 @@ namespace lingo {
             if (!parents_.empty()) o_ << parents_.top() << "->" << n.id() << std::endl;
 
             // Iterate children.
-            if(!visited(&n)) { // Never visited before?ls
-
+            if(!visited(&n)) { // Never visited before?
+                audit(&n); // Add to visited nodes (prevent recursion).
                 parents_.push(n.id()); // Parent to stack.
                 for(auto c:n.children()) c->accept(*this);
-                audit(&n); // Audit our visit.
                 parents_.pop();
             }
         }
@@ -421,9 +471,9 @@ namespace lingo {
 
             // Iterate children.
             if(!visited(&n)) { // Never visited before?
+                audit(&n); // Audit our visit.
                 parents_.push(n.id()); // Parent to stack.
                 n.sibling()->accept(*this);
-                audit(&n); // Audit our visit.
                 parents_.pop();
             }
         }
