@@ -25,7 +25,10 @@ namespace lingo {
                 row_(row), 
                 col_(col)
             {};
-        // TODO: Expose members.
+        std::string source_name() { return source_name_; }
+        std::string rule_name() { return rule_name_; }
+        int row() { return row_; }
+        int col() { return col_; }
     protected:
         std::string source_name_;
         std::string rule_name_;
@@ -290,7 +293,8 @@ namespace lingo {
         // Node visitor.
         void accept(node_visitor & v) { node_->accept(v); }
 
-        bool validate(source& src) { return node_->parse(src); }
+        // Will throw parse_exception if not successful.
+        bool parse(source& src) { return node_->parse(src); }
 
     protected:
         template <class T> rule multary(const rule &r);

@@ -1,6 +1,6 @@
 # Lingo
 
-Lingo is a C++20 framework for creating recursive descent parsers. Followign the
+Lingo is a C++20 framework for creating recursive descent parsers. Following the
 *simplicity before performance* philosophy, Lingo should be used for parsing 
 small to medium sized files. 
 
@@ -53,25 +53,29 @@ Here is its' implementation in lingo.
 ~~~cpp
 lingo::rule lparen('(');
 lingo::rule rparen(')');
+lingo::dule sign({'+','-'});
 lingo::rule plus('+');
 lingo::rule minus('-');
-lingo::rule asterisk('*');
-lingo::rule slash('/');
+lingo::rule mul('*');
+lingo::rule div('/');
 lingo::rule digit('0','9');
 lingo::rule number = lingo::repeat(digit, 1); // At least 1 digit.
 
 lingo::placeholder expression_placeholder; // For recursion.
 lingo::rule factor = number | ( lparen + expression_placeholder + rparen );
-lingo::rule term = factor + lingo::repeat( ( asterisk | slash ) + factor, 0);
-lingo::rule expression = lingo::repeat(plus | minus,0,1) + term + lingo::repeat ( (plus | minus) + term, 0);
+lingo::rule term = factor + lingo::repeat( ( mul | div ) + factor, 0);
+lingo::rule expression = 
+    lingo::repeat(sign,0,1) 
+    + term 
+    + lingo::repeat ( (plus | minus) + term, 0);
 expression_placeholder.set(expression); // Wire the recursion.
 ~~~
 
 ## Named rules
 
 To create a meaningful message when a parse error occurs (such as:
-'identifier expected at line 12 column 3') you need to assign names
-to rules. 
+"unexpected symbol '$' in identifier at line 12 column 3") you need to 
+assign names to rules. 
 
 Rule constructors have their twin which accepts rule name as the first
 parameter.
@@ -143,6 +147,8 @@ std::cout << v.str();
 (...coming soon...)
 
 ## Internals
+
+### Project folder structure
 
 ### Node tree visitors
 
