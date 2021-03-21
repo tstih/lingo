@@ -1,0 +1,3 @@
+Links:
+    https://ryandeangraham.medium.com/building-a-header-only-library-hello-world-f9dd05ac1066
+    https://medium.com/swlh/c-project-structure-for-cmake-67d60135f6f5

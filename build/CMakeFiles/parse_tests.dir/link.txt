@@ -1,0 +1,1 @@
+/usr/bin/c++  -g   CMakeFiles/parse_tests.dir/test/parse-tests.cpp.o  -o parse_tests  /usr/local/lib/libCatch2.a 

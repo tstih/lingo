@@ -2,7 +2,7 @@
 #include "lingo.hpp"
 
 #define CONFIG_CATCH_MAIN
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 
 TEST_CASE("parse_and_success")
 {
