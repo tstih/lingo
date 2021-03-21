@@ -6,7 +6,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/lingo",
+            "program": "${workspaceFolder}/build/tests",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

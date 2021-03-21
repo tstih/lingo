@@ -9,11 +9,10 @@ include(GNUInstallDirs)
 project(lingo)
 
 # Tests.
-find_package(Catch2 REQUIRED)
-add_executable(parse_tests test/parse-tests.cpp)
-target_link_libraries(parse_tests PRIVATE Catch2::Catch2)
-target_include_directories(parse_tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
-include(CTest)
-include(Catch)
-catch_discover_tests(parse_tests)
 enable_testing()
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIR})
+add_executable(tests 
+    test/parse-tests.cpp 
+    test/ast-tests.cpp)
+target_link_libraries(tests PRIVATE GTest::GTest GTest::Main)

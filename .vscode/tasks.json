@@ -2,8 +2,17 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "cmake",
+            "type": "shell",
+            "command": "cmake ..",
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            }
+        },
+        {
             "label": "build",
             "type": "shell",
+            "dependsOn": [ "cmake" ],
             "command": "make",
             "problemMatcher": [
                 "$gcc"
@@ -11,7 +20,10 @@
             "group": {
                 "kind": "build",
                 "isDefault": true
-              }
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            }
         }
     ]
 }
