@@ -1,3 +1,5 @@
+[![language.badge]][language.url] [![standard.badge]][standard.url] [![license.badge]][license.url]
+
 # Lingo
 
 Lingo is a C++20 framework for creating recursive descent parsers. Following the
@@ -157,3 +159,13 @@ std::cout << v.str();
 ## Join the lingo team!
 
 (...coming soon...)
+
+
+[language.url]:   https://isocpp.org/
+[language.badge]: https://img.shields.io/badge/language-C++-blue.svg
+
+[standard.url]:   https://en.wikipedia.org/wiki/C%2B%2B#Standardization
+[standard.badge]: https://img.shields.io/badge/C%2B%2B-20-blue.svg
+
+[license.url]:    https://github.com/tstih/nice/blob/master/LICENSE
+[license.badge]:  https://img.shields.io/badge/license-MIT-blue.svg
