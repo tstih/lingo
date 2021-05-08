@@ -170,4 +170,4 @@ std::cout << v.str();
 [license.url]:    https://github.com/tstih/nice/blob/master/LICENSE
 [license.badge]:  https://img.shields.io/badge/license-MIT-blue.svg
 
-[status.badge]:  https://img.shields.io/badge/status-unstable-darkred.svg
+[status.badge]:  https://img.shields.io/badge/status-unstable-red.svg
